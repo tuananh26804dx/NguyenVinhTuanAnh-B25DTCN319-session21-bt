@@ -1,0 +1,26 @@
+#include <stdio.h>
+#include <string.h>
+
+
+struct Car {
+    char model[50];   // dùng để lưu tên mẫu xe
+    int year;         // dùng để lưu năm sản xuất của xe
+    double price;     // dùng để lưu giá của xe
+};
+
+int main(void) {
+    // Khởi tạo một biến myCar kiểu Car và gán giá trị
+    struct Car myCar;
+    // Gán giá trị cho các thành viên
+    strcpy(myCar.model, "Toyota Camry");
+    myCar.year = 2022;
+    myCar.price = 78999.99; // đơn vị tuỳ theo yêu cầu (ví dụ: VND, USD)
+
+    // In thông tin của myCar ra màn hình
+    printf("Thong tin xe:\n");
+    printf("- Mau xe: %s\n", myCar.model);
+    printf("- Nam san xuat: %d\n", myCar.year);
+    printf("- Gia: %.2f\n", myCar.price);
+
+    return 0;
+}
