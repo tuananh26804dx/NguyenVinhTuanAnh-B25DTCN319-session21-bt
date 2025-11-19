@@ -1,0 +1,345 @@
+#include <stdio.h>
+#include <string.h>
+#include <ctype.h>
+#include <stdlib.h>
+
+#define MAX_PRODUCTS 1000
+#define NAME_LEN 100
+#define CODE_LEN 50
+
+typedef struct {
+    char code[CODE_LEN];
+    char name[NAME_LEN];
+    double importPrice; // gia nhap
+    double salePrice;   // gia ban
+    int quantity;       // so luong
+} Product;
+
+// Global storage
+static Product products[MAX_PRODUCTS];
+static int productCount = 0;
+static double revenue = 0.0; // Doanh thu (có thể âm nếu mới chỉ nhập hàng)
+
+// Utility: trim newline from fgets
+static void trim_newline(char *s) {
+    if (!s) return;
+    size_t n = strlen(s);
+    if (n > 0 && (s[n-1] == '\n' || s[n-1] == '\r')) s[n-1] = '\0';
+}
+
+// Utility: tolower string copy
+static void tolower_copy(const char *src, char *dst, size_t dstSize) {
+    if (dstSize == 0) return;
+    size_t i = 0;
+    for (; src[i] != '\0' && i < dstSize - 1; ++i) {
+        dst[i] = (char)tolower((unsigned char)src[i]);
+    }
+    dst[i] = '\0';
+}
+
+// Find index by code, return -1 if not found
+static int findIndexByCode(const char *code) {
+    for (int i = 0; i < productCount; ++i) {
+        if (strcmp(products[i].code, code) == 0) return i;
+    }
+    return -1;
+}
+
+// Case-insensitive substring search for name
+static int nameContains(const char *name, const char *keyword) {
+    char a[NAME_LEN], b[NAME_LEN];
+    tolower_copy(name, a, sizeof(a));
+    tolower_copy(keyword, b, sizeof(b));
+    return strstr(a, b) != NULL;
+}
+
+// Input helpers
+static int inputInt(const char *prompt, int minVal, int maxVal) {
+    char buf[256];
+    int x;
+    for (;;) {
+        if (prompt) printf("%s", prompt);
+        if (!fgets(buf, sizeof(buf), stdin)) continue;
+        if (sscanf(buf, "%d", &x) == 1 && x >= minVal && x <= maxVal) return x;
+        printf("Giá trị không hợp lệ. Vui lòng nhập số trong khoảng [%d..%d].\n", minVal, maxVal);
+    }
+}
+
+static double inputDouble(const char *prompt, double minVal, double maxVal) {
+    char buf[256];
+    double x;
+    for (;;) {
+        if (prompt) printf("%s", prompt);
+        if (!fgets(buf, sizeof(buf), stdin)) continue;
+        if (sscanf(buf, "%lf", &x) == 1 && x >= minVal && x <= maxVal) return x;
+        printf("Giá trị không hợp lệ. Vui lòng nhập số thực trong khoảng [%.2f..%.2f].\n", minVal, maxVal);
+    }
+}
+
+static void inputLine(const char *prompt, char *out, size_t outSize) {
+    for (;;) {
+        if (prompt) printf("%s", prompt);
+        if (!fgets(out, (int)outSize, stdin)) continue;
+        trim_newline(out);
+        // Prevent empty string
+        if (strlen(out) == 0) {
+            printf("Không được để trống. Vui lòng nhập lại.\n");
+            continue;
+        }
+        return;
+    }
+}
+
+// Feature: Nhập danh sách ban đầu
+static void inputInitialProducts(void) {
+    int n = inputInt("Nhập số lượng sản phẩm ban đầu: ", 0, MAX_PRODUCTS);
+    for (int i = 0; i < n; ++i) {
+        if (productCount >= MAX_PRODUCTS) {
+            printf("Danh sách đã đầy.\n");
+            break;
+        }
+        printf("\nSản phẩm #%d\n", i + 1);
+        char code[CODE_LEN];
+        inputLine("Mã sản phẩm: ", code, sizeof(code));
+        int idx = findIndexByCode(code);
+        if (idx != -1) {
+            // Nếu đã tồn tại, chỉ tăng số lượng và cập nhật doanh thu khi nhập
+            int qty = inputInt("Số lượng nhập: ", 0, 1000000000);
+            double imp = inputDouble("Giá nhập (đồng/đơn vị): ", 0, 1e12);
+            // doanh thu giảm
+            revenue -= (double)qty * imp;
+            products[idx].quantity += qty;
+            // Không thay đổi giá bán/nhập mặc định ở đây; hoặc có thể cập nhật giá nhập tham chiếu
+            printf("Đã tăng số lượng cho mã %s. Số lượng hiện tại: %d\n", products[idx].code, products[idx].quantity);
+            continue;
+        }
+        // Tạo sản phẩm mới
+        Product p;
+        strncpy(p.code, code, CODE_LEN - 1); p.code[CODE_LEN-1] = '\0';
+        inputLine("Tên sản phẩm: ", p.name, sizeof(p.name));
+        p.importPrice = inputDouble("Giá nhập (đồng/đơn vị): ", 0, 1e12);
+        p.salePrice   = inputDouble("Giá bán (đồng/đơn vị): ", 0, 1e12);
+        p.quantity    = inputInt("Số lượng: ", 0, 1000000000);
+        // Doanh thu giảm theo nhập kho
+        revenue -= (double)p.quantity * p.importPrice;
+        products[productCount++] = p;
+    }
+}
+
+// Feature: Hiển thị danh sách sản phẩm
+static void printProductHeader(void) {
+    printf("\n%-15s | %-30s | %-12s | %-12s | %-10s\n", "Mã", "Tên", "Giá nhập", "Giá bán", "Số lượng");
+    printf("---------------------------------------------------------------------------------------------\n");
+}
+
+static void printProduct(const Product *p) {
+    printf("%-15s | %-30s | %12.2f | %12.2f | %10d\n", p->code, p->name, p->importPrice, p->salePrice, p->quantity);
+}
+
+static void listProducts(void) {
+    if (productCount == 0) {
+        printf("\nChưa có sản phẩm nào.\n");
+        return;
+    }
+    printProductHeader();
+    for (int i = 0; i < productCount; ++i) {
+        printProduct(&products[i]);
+    }
+}
+
+// Feature: Nhập sản phẩm (nhập kho)
+static void importProduct(void) {
+    if (productCount >= MAX_PRODUCTS) {
+        printf("Danh sách đã đầy.\n");
+        return;
+    }
+    char code[CODE_LEN];
+    inputLine("Nhập mã sản phẩm: ", code, sizeof(code));
+    int idx = findIndexByCode(code);
+    int qty = inputInt("Số lượng nhập: ", 0, 1000000000);
+    double imp = inputDouble("Giá nhập (đồng/đơn vị): ", 0, 1e12);
+    // Doanh thu giảm
+    revenue -= (double)qty * imp;
+
+    if (idx != -1) {
+        products[idx].quantity += qty;
+        printf("Đã tăng số lượng cho mã %s. Số lượng hiện tại: %d\n", products[idx].code, products[idx].quantity);
+    } else {
+        // Thêm mới nếu chưa tồn tại
+        Product p;
+        strncpy(p.code, code, CODE_LEN - 1); p.code[CODE_LEN-1] = '\0';
+        inputLine("Tên sản phẩm: ", p.name, sizeof(p.name));
+        p.importPrice = imp;
+        p.salePrice   = inputDouble("Giá bán (đồng/đơn vị): ", 0, 1e12);
+        p.quantity    = qty;
+        products[productCount++] = p;
+        printf("Đã thêm sản phẩm mới.\n");
+    }
+}
+
+// Feature: Cập nhật thông tin sản phẩm
+static void updateProduct(void) {
+    if (productCount == 0) {
+        printf("Chưa có sản phẩm để cập nhật.\n");
+        return;
+    }
+    char code[CODE_LEN];
+    inputLine("Nhập mã sản phẩm cần cập nhật: ", code, sizeof(code));
+    int idx = findIndexByCode(code);
+    if (idx == -1) {
+        printf("Không tìm thấy sản phẩm có mã %s.\n", code);
+        return;
+    }
+    Product *p = &products[idx];
+    printf("Cập nhật thông tin cho mã %s (để trống để giữ nguyên).\n", p->code);
+
+    char buf[256];
+    printf("Tên sản phẩm hiện tại: %s\nNhập tên mới (Enter để bỏ qua): ", p->name);
+    if (fgets(buf, sizeof(buf), stdin)) {
+        if (buf[0] != '\n') {
+            trim_newline(buf);
+            strncpy(p->name, buf, NAME_LEN - 1); p->name[NAME_LEN-1] = '\0';
+        }
+    }
+
+    printf("Giá nhập hiện tại: %.2f\nNhập giá nhập mới (âm để bỏ qua): ", p->importPrice);
+    if (fgets(buf, sizeof(buf), stdin)) {
+        double v;
+        if (sscanf(buf, "%lf", &v) == 1 && v >= 0) p->importPrice = v;
+    }
+
+    printf("Giá bán hiện tại: %.2f\nNhập giá bán mới (âm để bỏ qua): ", p->salePrice);
+    if (fgets(buf, sizeof(buf), stdin)) {
+        double v;
+        if (sscanf(buf, "%lf", &v) == 1 && v >= 0) p->salePrice = v;
+    }
+
+    printf("Số lượng hiện tại: %d\nNhập số lượng mới (âm để bỏ qua): ", p->quantity);
+    if (fgets(buf, sizeof(buf), stdin)) {
+        int v;
+        if (sscanf(buf, "%d", &v) == 1 && v >= 0) p->quantity = v;
+    }
+
+    printf("Đã cập nhật sản phẩm.\n");
+}
+
+// Feature: Sắp xếp sản phẩm theo giá (tăng/giảm) theo giá bán
+static int cmpAsc(const void *a, const void *b) {
+    const Product *pa = (const Product *)a;
+    const Product *pb = (const Product *)b;
+    if (pa->salePrice < pb->salePrice) return -1;
+    if (pa->salePrice > pb->salePrice) return 1;
+    return strcmp(pa->code, pb->code);
+}
+
+static int cmpDesc(const void *a, const void *b) {
+    return -cmpAsc(a, b);
+}
+
+static void sortProducts(void) {
+    if (productCount <= 1) {
+        printf("Không có gì để sắp xếp.\n");
+        return;
+    }
+    int choice = inputInt("Sắp xếp theo giá bán (1. Tăng dần, 2. Giảm dần): ", 1, 2);
+    if (choice == 1) qsort(products, productCount, sizeof(Product), cmpAsc);
+    else qsort(products, productCount, sizeof(Product), cmpDesc);
+    printf("Đã sắp xếp.\n");
+}
+
+// Feature: Tìm kiếm sản phẩm (theo mã hoặc tên)
+static void searchProducts(void) {
+    if (productCount == 0) {
+        printf("Chưa có sản phẩm.\n");
+        return;
+    }
+    int mode = inputInt("Tìm theo (1. Mã, 2. Tên chứa): ", 1, 2);
+    if (mode == 1) {
+        char code[CODE_LEN];
+        inputLine("Nhập mã cần tìm: ", code, sizeof(code));
+        int idx = findIndexByCode(code);
+        if (idx == -1) printf("Không tìm thấy sản phẩm có mã %s.\n", code);
+        else {
+            printProductHeader();
+            printProduct(&products[idx]);
+        }
+    } else {
+        char keyword[NAME_LEN];
+        inputLine("Nhập từ khóa tên: ", keyword, sizeof(keyword));
+        int found = 0;
+        printProductHeader();
+        for (int i = 0; i < productCount; ++i) {
+            if (nameContains(products[i].name, keyword)) {
+                printProduct(&products[i]);
+                found = 1;
+            }
+        }
+        if (!found) printf("Không có sản phẩm phù hợp.\n");
+    }
+}
+
+// Feature: Bán sản phẩm
+static void sellProduct(void) {
+    if (productCount == 0) {
+        printf("Chưa có sản phẩm để bán.\n");
+        return;
+    }
+    char code[CODE_LEN];
+    inputLine("Nhập mã sản phẩm cần bán: ", code, sizeof(code));
+    int idx = findIndexByCode(code);
+    if (idx == -1) {
+        printf("Không tìm thấy sản phẩm có mã %s.\n", code);
+        return;
+    }
+    Product *p = &products[idx];
+    if (p->quantity == 0) {
+        printf("Hết hàng.\n");
+        return;
+    }
+    int qty = inputInt("Nhập số lượng cần bán: ", 1, 1000000000);
+    if (qty > p->quantity) {
+        printf("Không còn đủ hàng. Số lượng hiện có: %d\n", p->quantity);
+        return;
+    }
+    p->quantity -= qty;
+    revenue += (double)qty * p->salePrice;
+    printf("Đã bán %d đơn vị sản phẩm %s. Số lượng còn lại: %d\n", qty, p->code, p->quantity);
+}
+
+// Feature: Doanh thu hiện tại
+static void showRevenue(void) {
+    printf("\nDoanh thu hiện tại: %.2f (âm nghĩa là chi phí nhập lớn hơn doanh thu bán)\n", revenue);
+}
+
+static void printMenu(void) {
+    printf("\n==== MENU ====\n");
+    printf("1. Nhập số lượng và thông tin sản phẩm.\n");
+    printf("2. Hiển thị danh sách sản phẩm.\n");
+    printf("3. Nhập sản phẩm (nhập kho).\n");
+    printf("4. Cập nhật thông tin sản phẩm.\n");
+    printf("5. Sắp xếp sản phẩm theo giá (tăng/giảm).\n");
+    printf("6. Tìm kiếm sản phẩm.\n");
+    printf("7. Bán sản phẩm.\n");
+    printf("8. Doanh thu hiện tại.\n");
+    printf("9. Thoát.\n");
+}
+
+int main(void) {
+    for (;;) {
+        printMenu();
+        int choice = inputInt("\nLựa chọn của bạn: ", 1, 9);
+        switch (choice) {
+            case 1: inputInitialProducts(); break;
+            case 2: listProducts(); break;
+            case 3: importProduct(); break;
+            case 4: updateProduct(); break;
+            case 5: sortProducts(); break;
+            case 6: searchProducts(); break;
+            case 7: sellProduct(); break;
+            case 8: showRevenue(); break;
+            case 9: printf("Tạm biệt!\n"); return 0;
+            default: break;
+        }
+    }
+}
+ 
