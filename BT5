@@ -1,0 +1,61 @@
+#include <stdio.h>
+#include <string.h>
+
+#define MAX_NAME_LEN 50
+#define NUM_PRODUCTS 5
+
+typedef struct {
+    char name[MAX_NAME_LEN];   // Tên sản phẩm
+    float price;               // Giá sản phẩm
+    int quantity;              // Số lượng sản phẩm
+} Product;
+
+int main(void) {
+    Product products[NUM_PRODUCTS];
+    float totalValue = 0.0f;
+
+    for (int i = 0; i < NUM_PRODUCTS; ++i) {
+        printf("Nhap thong tin cho san pham %d:\n", i + 1);
+
+        // Nhap ten san pham (cho phep co khoang trang)
+        printf("  Ten: ");
+        if (fgets(products[i].name, sizeof(products[i].name), stdin) == NULL) {
+            // Neu loi khi nhap, gan ten rong
+            products[i].name[0] = '\0';
+        } else {
+            // Loai bo ky tu newline neu co
+            size_t len = strlen(products[i].name);
+            if (len > 0 && products[i].name[len - 1] == '\n') {
+                products[i].name[len - 1] = '\0';
+            }
+        }
+
+        // Nhap gia
+        printf("  Gia: ");
+        while (scanf("%f", &products[i].price) != 1) {
+            // Xoa buffer neu nhap khong hop le
+            int c;
+            while ((c = getchar()) != '\n' && c != EOF) {}
+            printf("  Gia khong hop le. Vui long nhap lai: ");
+        }
+
+        // Nhap so luong
+        printf("  So luong: ");
+        while (scanf("%d", &products[i].quantity) != 1) {
+            int c;
+            while ((c = getchar()) != '\n' && c != EOF) {}
+            printf("  So luong khong hop le. Vui long nhap lai: ");
+        }
+
+        // Xoa ky tu newline con lai trong buffer truoc khi doc ten tiep theo
+        int c;
+        while ((c = getchar()) != '\n' && c != EOF) {}
+
+        totalValue += products[i].price * products[i].quantity;
+        printf("\n");
+    }
+
+    printf("Tong gia tri cua tat ca san pham: %.2f\n", totalValue);
+
+    return 0;
+} 
