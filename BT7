@@ -1,0 +1,308 @@
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h> 
+#include <ctype.h>
+
+#define MAX_BOOKS 1000
+#define MAX_STR 100
+
+typedef struct {
+    char maSach[MAX_STR];
+    char tenSach[MAX_STR];
+    char tacGia[MAX_STR];
+    double giaTien;
+    char theLoai[MAX_STR];
+} Book;
+
+// Utility: trim newline at end of string
+static void trim_newline(char *s) {
+    if (!s) return;
+    size_t n = strlen(s);
+    if (n > 0 && (s[n-1] == '\n' || s[n-1] == '\r')) s[--n] = '\0';
+    // remove possible '\r' if present
+    if (n > 0 && s[n-1] == '\r') s[n-1] = '\0';
+}
+
+// Utility: read line safely
+static void read_line(char *buf, size_t size) {
+    if (fgets(buf, (int)size, stdin)) {
+        trim_newline(buf);
+    } else {
+        // input error; ensure empty string
+        if (size) buf[0] = '\0';
+        clearerr(stdin);
+    }
+}
+
+// Utility: read double with prompt and validation
+static double read_double(void) {
+    char line[256];
+    while (1) {
+        read_line(line, sizeof(line));
+        if (line[0] == '\0') {
+            // empty input, ask again
+        } else {
+            char *endptr = NULL;
+            double v = strtod(line, &endptr);
+            if (endptr && *endptr == '\0') {
+                return v;
+            }
+        }
+        printf("Nhap lai (so hop le): ");
+    }
+}
+
+// Case-insensitive string compare helper
+static int stricmp_local(const char *a, const char *b) {
+    for (; *a && *b; ++a, ++b) {
+        int ca = tolower((unsigned char)*a);
+        int cb = tolower((unsigned char)*b);
+        if (ca != cb) return ca - cb;
+    }
+    return tolower((unsigned char)*a) - tolower((unsigned char)*b);
+}
+
+// Input a single book
+static void nhapSach(Book *b) {
+    printf("Ma sach: ");
+    read_line(b->maSach, sizeof(b->maSach));
+
+    printf("Ten sach: ");
+    read_line(b->tenSach, sizeof(b->tenSach));
+
+    printf("Tac gia: ");
+    read_line(b->tacGia, sizeof(b->tacGia));
+
+    printf("Gia tien: ");
+    b->giaTien = read_double();
+
+    printf("The loai: ");
+    read_line(b->theLoai, sizeof(b->theLoai));
+}
+
+// Output a single book
+static void hienThiSach(const Book *b, int index) {
+    if (index >= 0) {
+        printf("[%d] ", index);
+    }
+    printf("Ma: %s | Ten: %s | Tac gia: %s | Gia: %.2f | The loai: %s\n",
+           b->maSach, b->tenSach, b->tacGia, b->giaTien, b->theLoai);
+}
+
+// Find index by maSach; return -1 if not found
+static int timTheoMa(const Book a[], int n, const char *ma) {
+    for (int i = 0; i < n; ++i) {
+        if (strcmp(a[i].maSach, ma) == 0) return i;
+    }
+    return -1;
+}
+
+// Find by name (case-insensitive substring), print matches; return count
+static int timTheoTen(const Book a[], int n, const char *keyword) {
+    int count = 0;
+    for (int i = 0; i < n; ++i) {
+        const char *name = a[i].tenSach;
+        size_t kwlen = strlen(keyword);
+        if (kwlen == 0) continue;
+        // Sliding window compare
+        for (size_t j = 0; name[j]; ++j) {
+            size_t k = 0;
+            while (k < kwlen && name[j + k] && tolower((unsigned char)name[j + k]) == tolower((unsigned char)keyword[k])) {
+                ++k;
+            }
+            if (k == kwlen) {
+                hienThiSach(&a[i], i);
+                ++count;
+                break;
+            }
+        }
+    }
+    return count;
+}
+
+// Insert book at position pos (0..*n). Returns 1 if success
+static int chenTaiViTri(Book a[], int *n, int pos, Book b) {
+    if (*n >= MAX_BOOKS || pos < 0 || pos > *n) return 0;
+    for (int i = *n; i > pos; --i) {
+        a[i] = a[i - 1];
+    }
+    a[pos] = b;
+    (*n)++;
+    return 1;
+}
+
+// Delete by index; returns 1 if success
+static int xoaTaiViTri(Book a[], int *n, int pos) {
+    if (pos < 0 || pos >= *n) return 0;
+    for (int i = pos; i < *n - 1; ++i) {
+        a[i] = a[i + 1];
+    }
+    (*n)--;
+    return 1;
+}
+
+// Sort by price; order: 1 for ascending, -1 for descending
+static void sapXepTheoGia(Book a[], int n, int order) {
+    for (int i = 0; i < n - 1; ++i) {
+        for (int j = i + 1; j < n; ++j) {
+            int cmp = 0;
+            if (a[i].giaTien < a[j].giaTien) cmp = -1; else if (a[i].giaTien > a[j].giaTien) cmp = 1; else cmp = 0;
+            if ((order == 1 && cmp > 0) || (order == -1 && cmp < 0)) {
+                Book tmp = a[i];
+                a[i] = a[j];
+                a[j] = tmp;
+            }
+        }
+    }
+}
+
+static void hienThiDanhSach(const Book a[], int n) {
+    if (n == 0) {
+        printf("Danh sach rong.\n");
+        return;
+    }
+    for (int i = 0; i < n; ++i) {
+        hienThiSach(&a[i], i);
+    }
+}
+
+static void nhapDanhSach(Book a[], int *n) {
+    int so;
+    printf("Nhap so luong sach: ");
+    if (scanf("%d", &so) != 1 || so < 0 || so > MAX_BOOKS) {
+        printf("So luong khong hop le.\n");
+        // clear input
+        int ch; while ((ch = getchar()) != '\n' && ch != EOF) {}
+        return;
+    }
+    int ch; while ((ch = getchar()) != '\n' && ch != EOF) {}
+    for (int i = 0; i < so; ++i) {
+        printf("\n-- Nhap sach thu %d --\n", i + 1);
+        Book b; nhapSach(&b);
+        a[*n] = b; (*n)++;
+    }
+}
+
+static void capNhatTheoMa(Book a[], int n) {
+    char ma[MAX_STR];
+    printf("Nhap ma sach can cap nhat: ");
+    int ch; while ((ch = getchar()) != '\n' && ch != EOF) {}
+    read_line(ma, sizeof(ma));
+    int idx = timTheoMa(a, n, ma);
+    if (idx == -1) {
+        printf("Khong tim thay ma sach.\n");
+        return;
+    }
+    printf("Nhap thong tin moi (bo qua truong nao thi de trong va nhan Enter)\n");
+
+    char buf[MAX_STR];
+
+    printf("Ten sach moi: ");
+    read_line(buf, sizeof(buf));
+    if (strlen(buf) > 0) strncpy(a[idx].tenSach, buf, sizeof(a[idx].tenSach)), a[idx].tenSach[sizeof(a[idx].tenSach)-1] = '\0';
+
+    printf("Tac gia moi: ");
+    read_line(buf, sizeof(buf));
+    if (strlen(buf) > 0) strncpy(a[idx].tacGia, buf, sizeof(a[idx].tacGia)), a[idx].tacGia[sizeof(a[idx].tacGia)-1] = '\0';
+
+    printf("Gia tien moi (bo qua neu khong doi): ");
+    char line[256];
+    read_line(line, sizeof(line));
+    if (strlen(line) > 0) {
+        char *endptr = NULL; double v = strtod(line, &endptr);
+        if (endptr && *endptr == '\0') a[idx].giaTien = v; else printf("Gia khong hop le, bo qua.\n");
+    }
+
+    printf("The loai moi: ");
+    read_line(buf, sizeof(buf));
+    if (strlen(buf) > 0) strncpy(a[idx].theLoai, buf, sizeof(a[idx].theLoai)), a[idx].theLoai[sizeof(a[idx].theLoai)-1] = '\0';
+
+    printf("Da cap nhat.\n");
+}
+
+static void menu(void) {
+    printf("\n===== MENU =====\n");
+    printf("1. Nhap so luong va thong tin sach\n");
+    printf("2. Hien thi thong tin sach\n");
+    printf("3. Them sach vao vi tri\n");
+    printf("4. Xoa sach theo ma sach\n");
+    printf("5. Cap nhat thong tin sach theo ma sach\n");
+    printf("6. Sap xep sach theo gia (tang/giam)\n");
+    printf("7. Tim kiem sach theo ten sach\n");
+    printf("0. Thoat\n");
+    printf("Chon: ");
+}
+
+int main(void) {
+    Book ds[MAX_BOOKS];
+    int n = 0;
+    int choice;
+    for (;;) {
+        menu();
+        if (scanf("%d", &choice) != 1) {
+            printf("Lua chon khong hop le.\n");
+            int ch; while ((ch = getchar()) != '\n' && ch != EOF) {}
+            continue;
+        }
+        int ch; while ((ch = getchar()) != '\n' && ch != EOF) {}
+        if (choice == 0) {
+            printf("Thoat chuong trinh.\n");
+            break;
+        }
+        switch (choice) {
+            case 1: {
+                nhapDanhSach(ds, &n);
+                break;
+            }
+            case 2: {
+                hienThiDanhSach(ds, n);
+                break;
+            }
+            case 3: {
+                printf("Nhap vi tri chen (0..%d): ", n);
+                int pos;
+                if (scanf("%d", &pos) != 1) { printf("Vi tri khong hop le.\n"); int c; while ((c = getchar()) != '\n' && c != EOF) {}; break; }
+                while ((ch = getchar()) != '\n' && ch != EOF) {}
+                Book b; printf("\n-- Nhap thong tin sach can them --\n"); nhapSach(&b);
+                if (chenTaiViTri(ds, &n, pos, b)) printf("Da chen.\n"); else printf("Chen that bai.\n");
+                break;
+            }
+            case 4: {
+                char ma[MAX_STR];
+                printf("Nhap ma sach can xoa: ");
+                read_line(ma, sizeof(ma));
+                int idx = timTheoMa(ds, n, ma);
+                if (idx == -1) printf("Khong tim thay ma sach.\n");
+                else { xoaTaiViTri(ds, &n, idx); printf("Da xoa.\n"); }
+                break;
+            }
+            case 5: {
+                capNhatTheoMa(ds, n);
+                break;
+            }
+            case 6: {
+                printf("Chon thu tu (1: tang, -1: giam): ");
+                int ord;
+                if (scanf("%d", &ord) != 1 || (ord != 1 && ord != -1)) {
+                    printf("Lua chon khong hop le.\n");
+                } else {
+                    sapXepTheoGia(ds, n, ord);
+                    printf("Da sap xep.\n");
+                }
+                while ((ch = getchar()) != '\n' && ch != EOF) {}
+                break;
+            }
+            case 7: {
+                char key[MAX_STR];
+                printf("Nhap ten sach can tim (tu khoa): ");
+                read_line(key, sizeof(key));
+                int found = timTheoTen(ds, n, key);
+                if (found == 0) printf("Khong tim thay ket qua.\n");
+                break;
+            }
+            default:
+                printf("Khong co chuc nang nay.\n");
+        }
+    }
+    return 0;
+}
