@@ -1,0 +1,68 @@
+#include <stdio.h>
+#include <string.h>
+
+#define MAX_TITLE_LEN 100
+#define MAX_AUTHOR_LEN 50
+#define BOOK_COUNT 3
+
+typedef struct {
+    char title[MAX_TITLE_LEN];   // tên sách
+    char author[MAX_AUTHOR_LEN]; // tên tác giả
+    float price;                 // giá sách
+} Book;
+
+// Hàm tiện ích để loại bỏ ký tự newline ở cuối chuỗi (nếu có)
+void trim_newline(char *s) {
+    if (!s) return;
+    size_t len = strlen(s);
+    if (len > 0 && s[len - 1] == '\n') {
+        s[len - 1] = '\0';
+    }
+}
+
+int main(void) {
+    Book books[BOOK_COUNT];
+
+    printf("Nhap thong tin cho %d cuon sach:\n", BOOK_COUNT);
+
+    for (int i = 0; i < BOOK_COUNT; ++i) {
+        printf("\n-- Sach %d --\n", i + 1);
+
+        // Nhap ten sach
+        printf("Nhap ten sach: ");
+        if (fgets(books[i].title, sizeof(books[i].title), stdin) == NULL) {
+            // Neu loi nhap, gan chuoi rong
+            books[i].title[0] = '\0';
+        }
+        trim_newline(books[i].title);
+
+        // Nhap ten tac gia
+        printf("Nhap ten tac gia: ");
+        if (fgets(books[i].author, sizeof(books[i].author), stdin) == NULL) {
+            books[i].author[0] = '\0';
+        }
+        trim_newline(books[i].author);
+
+        // Nhap gia sach
+        printf("Nhap gia: ");
+        while (scanf("%f", &books[i].price) != 1) {
+            // Xoa bo nho dem neu nhap khong hop le
+            int c;
+            while ((c = getchar()) != '\n' && c != EOF) {}
+            printf("Gia khong hop le. Vui long nhap lai: ");
+        }
+        // Xoa ky tu newline con lai trong stdin sau khi scanf
+        int c;
+        while ((c = getchar()) != '\n' && c != EOF) {}
+    }
+
+    printf("\nDanh sach cac cuon sach:\n");
+    for (int i = 0; i < BOOK_COUNT; ++i) {
+        printf("\nSach %d:\n", i + 1);
+        printf("  Tieu de : %s\n", books[i].title);
+        printf("  Tac gia : %s\n", books[i].author);
+        printf("  Gia     : %.2f\n", books[i].price);
+    }
+
+    return 0;
+}
