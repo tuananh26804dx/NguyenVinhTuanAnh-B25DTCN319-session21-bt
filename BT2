@@ -1,0 +1,45 @@
+#include <stdio.h>
+#include <string.h>
+
+// Khai báo struct Student
+struct Student {
+    char name[50];   // lưu tên học sinh
+    int age;         // lưu tuổi học sinh
+    float grade;     // lưu điểm trung bình học sinh
+};
+
+int main(void) {
+    struct Student student1;
+
+    // Nhập tên: dùng fgets để nhận cả khoảng trắng
+    printf("Nhap ten hoc sinh: ");
+    if (fgets(student1.name, sizeof(student1.name), stdin) != NULL) {
+        // Loại bỏ ký tự newline nếu có
+        size_t len = strlen(student1.name);
+        if (len > 0 && student1.name[len - 1] == '\n') {
+            student1.name[len - 1] = '\0';
+        }
+    }
+
+    // Nhập tuổi
+    printf("Nhap tuoi: ");
+    if (scanf("%d", &student1.age) != 1) {
+        fprintf(stderr, "Loi: tuoi khong hop le.\n");
+        return 1;
+    }
+
+    // Nhập điểm trung bình
+    printf("Nhap diem trung binh: ");
+    if (scanf("%f", &student1.grade) != 1) {
+        fprintf(stderr, "Loi: diem trung binh khong hop le.\n");
+        return 1;
+    }
+
+    // In thông tin học sinh
+    printf("\nThong tin hoc sinh:\n");
+    printf("Ten: %s\n", student1.name);
+    printf("Tuoi: %d\n", student1.age);
+    printf("Diem trung binh: %.2f\n", student1.grade);
+
+    return 0;
+}
