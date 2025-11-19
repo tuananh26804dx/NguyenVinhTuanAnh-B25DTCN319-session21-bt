@@ -1,0 +1,73 @@
+#include <stdio.h>
+#include <string.h>
+
+// Khai báo struct Address
+typedef struct {
+    char street[100]; // tên đường
+    char city[50];    // tên thành phố
+    int zip;          // mã bưu điện
+} Address;
+
+// Khai báo struct Person
+typedef struct {
+    char name[50]; // tên người
+    int age;       // tuổi
+    Address address; // địa chỉ (struct lồng nhau)
+} Person;
+
+// Hàm tiện ích để loại bỏ ký tự newline ở cuối chuỗi nếu có
+void trim_newline(char *s) {
+    if (!s) return;
+    size_t len = strlen(s);
+    if (len > 0 && s[len - 1] == '\n') {
+        s[len - 1] = '\0';
+    }
+}
+
+int main(void) {
+    Person person1;
+
+    // Nhập thông tin cá nhân
+    printf("Nhap ten: ");
+    if (fgets(person1.name, sizeof(person1.name), stdin) != NULL) {
+        trim_newline(person1.name);
+    }
+
+    printf("Nhap tuoi: ");
+    if (scanf("%d", &person1.age) != 1) {
+        fprintf(stderr, "Loi: khong the doc tuoi.\n");
+        return 1;
+    }
+
+    // Đọc bỏ ký tự newline còn lại trong bộ đệm sau khi dùng scanf
+    int c;
+    while ((c = getchar()) != '\n' && c != EOF) {}
+
+    // Nhập địa chỉ
+    printf("Nhap ten duong: ");
+    if (fgets(person1.address.street, sizeof(person1.address.street), stdin) != NULL) {
+        trim_newline(person1.address.street);
+    }
+
+    printf("Nhap thanh pho: ");
+    if (fgets(person1.address.city, sizeof(person1.address.city), stdin) != NULL) {
+        trim_newline(person1.address.city);
+    }
+
+    printf("Nhap ma buu dien: ");
+    if (scanf("%d", &person1.address.zip) != 1) {
+        fprintf(stderr, "Loi: khong the doc ma buu dien.\n");
+        return 1;
+    }
+
+    // In thông tin
+    printf("\n===== Thong tin nguoi dung =====\n");
+    printf("Ten: %s\n", person1.name);
+    printf("Tuoi: %d\n", person1.age);
+    printf("Dia chi:\n");
+    printf("  Duong: %s\n", person1.address.street);
+    printf("  Thanh pho: %s\n", person1.address.city);
+    printf("  Ma buu dien: %d\n", person1.address.zip);
+
+    return 0;
+}
